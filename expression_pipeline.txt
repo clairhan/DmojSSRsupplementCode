@@ -1,0 +1,47 @@
+#Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
+
+#######################Part 1: Assign target gene sequences to FBgn gene names###################################
+#blast sequences of target genes (targets.fa) against D.moj r1.04 transcriptome 
+blast-2.2.26/bin/formatdb -i dmoj-all-transcript-r1.04.fasta -p F
+blast-2.2.26/bin/blastall -d dmoj-all-transcript-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 3 
+
+#blast sequences of target genes (targets.fa) against D.moj r1.04 genome reference 
+blast-2.2.26/bin/formatdb -i dmoj-all-chromosome-r1.04.fasta -p F
+blast-2.2.26/bin/formatdb -i targets.fa -p F
+blast-2.2.26/bin/blastall -d dmoj-all-chromosome-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 1 
+
+#######################Part 2: Map to reference and generate expression count data################################
+#map raw reads (.fastq.gz) to D.moj r1.04 reference genome
+bwa index dmoj-all-chromosome-r1.04.fasta 
+
+for file in *.fastq.gz
+do
+	gunzip ${file}
+done
+
+for file in *.fastq
+do
+	name=${file//_T20C30.trim.fastq/}
+	bwa aln dmoj-all-chromosome-r1.04.fasta ${file} > ${name}.sai
+	bwa samse dmoj-all-chromosome-r1.04.fasta ${name}.sai ${file} > ${name}.sam
+	samtools_git/samtools/bin/samtools view -b -S -o ${name}.bam ${name}.sam
+done
+
+#check percentage of reads mapped
+for file in *.bam
+do
+	output=${file//.bam/.stats}
+	samtools_git/samtools/bin/samtools flagstat ${file} > ${output}
+done
+
+#generate counts with htseq
+for file in *.sam
+do
+	output=${file//.sam/.counts}
+	htseq-count -s no -a 10 ${file} dmoj-all-r1.04.gtf > ${output}
+done
+
+###############################Part 3: Expression analysis with edgeR##############################################
+#conduct differential expression test for all genes in count file and produce volcano plot
+Rscript edgeR_expression.R
+

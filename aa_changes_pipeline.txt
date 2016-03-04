@@ -1,0 +1,163 @@
+#Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
+
+##############################Part 1: Map raw reads to reference################################################
+#parse raw reads
+python barcode_splitter.py --bcfile truseq_indexes_SMR --prefix G0- --gzip stephanier1-for-289-cycles-h8ttyadxx_2_read_1_passed_filter.fastq.gz stephanier1-for-289-cycles-h8ttyadxx_2_read_2_index_read_passed_filter.fastq.gz stephanier1-for-289-cycles-h8ttyadxx_2_read_3_passed_filter.fastq.gz --idxread 2 --suffix .fq.gz 
+
+python barcode_splitter.py --bcfile truseq_indexes_SMR --prefix G1- --gzip stephanier1-for-289-cycles-h8ttyadxx_1_read_1_passed_filter.fastq.gz stephanier1-for-289-cycles-h8ttyadxx_1_read_2_index_read_passed_filter.fastq.gz stephanier1-for-289-cycles-h8ttyadxx_1_read_3_passed_filter.fastq.gz --idxread 2 --suffix .fq.gz 
+
+#trim adapter
+for file in *1.fq.gz
+do
+	python /tigress/ANDOLFATTO/bin/cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCACACGTCT -o "trimmed_""$file" "$file"
+done
+for file in *3.fq.gz
+do
+	python /tigress/ANDOLFATTO/bin/cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCGTCGTGTA -o "trimmed_""$file" "$file"
+done
+
+#mate pair of read 1 and read 3
+for file in trimmed*_1.fq.gz
+do
+	readone=${file}
+	readtwo=${file}
+	readtwo=${readtwo//_1.fq.gz/_3.fq.gz}
+	gunzip ${file}
+	gunzip ${readtwo}
+	readone=${readone//_1.fq.gz/_1.fq}
+	readtwo=${readtwo//_3.fq.gz/_3.fq}
+	perl parse_mates_fastq2.pl ${readone} ${readtwo} 
+	gzip ${readone}
+	gzip ${readtwo}
+	gzip paired_${readone}
+	gzip paired_${readtwo}
+	gzip unmated_${readone}
+done
+
+#map to D.moj r1.04 reference genome
+python stampy-1.0.22/stampy.py -G ref dmoj-all-chromosome-r1.04.fasta
+python stampy-1.0.22/stampy.py -g ref -H ref
+for file in paired_*1.fq.gz
+do
+	readtwo=${file//_1.fq.gz/_3.fq.gz}
+	unmated=${file//paired/unmated}
+	out=${readtwo//_read_3.fq.gz/.sam}
+	out=${out//paired_trimmed/PE}
+	outSE=${out//PE/SE}
+	name=${out//.sam/.sh}
+	python stampy-1.0.22/stampy.py -g ref -h ref --insertsize=380 --substitutionrate=0.02 -t 6 -o ${out} -M ${file} ${readtwo}
+	python stampy-1.0.22/stampy.py -g ref -h ref --substitutionrate=0.02 -t 6 -o ${outSE} -M ${unmated}
+done
+
+#combine paired and unpaired reads from same individual and sort the bam files 
+for file in PE*.sam
+do	
+	PEsam=${file}
+	PEbam=${file//sam/bam}
+	PEbamsorted=${file//sam/sorted}
+	SEsam=${file//PE/SE}
+	SEbam=${SEsam//sam/bam}
+	SEbamsorted=${SEsam//sam/sorted}
+	final=${PEbam//PE_/}
+	samtools_git/samtools/bin/samtools view -b -S -o ${PEbam} ${PEsam}
+	samtools_git/samtools/bin/samtools sort ${PEbam} ${PEbamsorted}
+	samtools_git/samtools/bin/samtools view -b -S -o ${SEbam} ${SEsam}
+	samtools_git/samtools/bin/samtools sort ${SEbam} ${SEbamsorted}
+	samtools_git/samtools/bin/samtools merge ${final} ${PEbamsorted}.bam ${SEbamsorted}.bam
+done
+
+#check percentage of reads mapped
+for file in *.bam
+do
+	output=${file//.bam/.stats}
+	samtools_git/samtools/bin/samtools flagstat ${file} > ${output}
+done
+
+#filter bam file for mapping quality greater than 20
+for file in G*.bam
+do
+	output=${file//.bam/-MAPQ20.bam}
+	samtools_git/samtools/bin/samtools view -bq 20 ${file} > ${output}
+done
+
+#check coverage per site and average coverage across each individual
+for file in *.bam
+do
+	output=${file//.bam/.coverage}
+	samtools_git/samtools/bin/samtools depth ${file} -a > ${output}
+done
+for file in *.coverage
+do
+	cat "$file" | awk '{sum+=$3} END { print "Average = ",sum/NR}'
+done
+
+#######################################Part 2: Call SNPs with GATK######################################################
+#reference
+java -jar picard/dist/picard.jar CreateSequenceDictionary R=dmoj-all-chromosome-r1.04.fasta O=dmoj-all-chromosome-r1.04.dict
+samtools_git/samtools/bin/samtools faidx dmoj-all-chromosome-r1.04.fasta
+
+#add read group 
+for file in *.bam
+do 
+	output=${file//.bam/_RG.bam}
+	ID=${file//-MAPQ20.bam/}
+	java -jar picard/dist/picard.jar AddOrReplaceReadGroups I=${file} O=${output} RGLB=${ID} RGPL=${ID} RGPU=${ID} RGSM=${ID} VALIDATION_STRINGENCY=LENIENT
+	/tigress/ANDOLFATTO/bin/samtools_git/samtools/bin/samtools index ${output}
+done
+
+#identify interval + realign indels 
+for file in *_RG.bam
+do
+	intervals=${file//_RG.bam/.intervals}
+	RA=${file//_RG.bam/_RA.bam}
+	java -Xmx4g -jar GATK3.4/GenomeAnalysisTK.jar -I ${file} -R dmoj-all-chromosome-r1.04.fasta -T RealignerTargetCreator -o ${intervals}
+	java -Xmx4g -jar GATK3.4/GenomeAnalysisTK.jar -I ${file} -R  dmoj-all-chromosome-r1.04.fasta -T IndelRealigner -targetIntervals ${intervals} -o ${RA}
+	/tigress/ANDOLFATTO/bin/samtools_git/samtools/bin/samtools index ${RA}
+done
+
+#call SNPs with GATK Haplotype caller
+for file in *_RA.bam
+do
+	gvcf=${file//.bam/_raw.snps.indels.g.vcf}
+	allsites=${file//RA.bam/allsites.vcf}
+	variants=${file//RA.bam/variants.vcf}
+	name=${file//_RA.bam/.sh}
+	java -Xmx10g -jar GATK3.4/GenomeAnalysisTK.jar -T HaplotypeCaller -R dmoj-all-chromosome-r1.04.fasta -I ${file} -nct 10 --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 -o ${gvcf}
+	java -Xmx10g -jar GATK3.4/GenomeAnalysisTK.jar -T GenotypeGVCFs -nt 10 -R dmoj-all-chromosome-r1.04.fasta --variant ${gvcf} -allSites -o ${allsites}
+	java -Xmx10g -jar GATK3.4/GenomeAnalysisTK.jar -T GenotypeGVCFs -nt 10 -R dmoj-all-chromosome-r1.04.fasta --variant ${gvcf} -o ${variants}
+done
+
+#make list of insnps
+for file in *.vcf
+do
+	output=${file//.vcf/.insnp}
+	python insnp_v8_alisa.py ${file} ${output} 20 10 40 2 60 4 -12.5 -8.0 5
+done
+
+#mutate insnp to pseudo reference 
+for file in *.insnp 
+do 
+	output=${file//.insnp/.fasta}
+	seqtk mutfa dmoj-all-chromosome-r1.04.fasta ${file} > ${output}
+done
+
+##################################Part 3: Identify amino acid substitutions for genes of interest###################################
+#extract one scaffold (ex. scaffold 6540)
+for file in *allsites.fasta
+do 
+	output=${file//.fasta/_scaffold_6540.fasta}
+	samtools_git/samtools/bin/samtools faidx ${file} scaffold_6540 > ${output}
+done
+
+#extract specific regions from scaffold, concatenate the exons (ex. Or98a_2)
+for file in *6680.fasta
+do
+	output=${file//scaffold_6680.fasta/Or98a_2.fasta}
+	/tigress/ANDOLFATTO/patrick/bin/fixExons.pl -i ${file} 10169309-10170078:10170133-10170373:10170425-10170490:10170547-10170615 > ${output}
+done
+
+#translate nucleic acid to amino acid and mask degenerate regions 
+python2.7 translation.py
+
+#compare amino acid alignment and output variable amino acid sites 
+python2.7 MSA_summary_Dmoj.py
