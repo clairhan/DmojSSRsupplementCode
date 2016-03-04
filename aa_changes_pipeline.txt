@@ -1,4 +1,5 @@
 #Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
+#This code uses the scripts "translation.py" and "MSA_summary_Dmoj.py"
 
 ##############################Part 1: Map raw reads to reference################################################
 #parse raw reads
@@ -9,11 +10,11 @@ python barcode_splitter.py --bcfile truseq_indexes_SMR --prefix G1- --gzip steph
 #trim adapter
 for file in *1.fq.gz
 do
-	python /tigress/ANDOLFATTO/bin/cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCACACGTCT -o "trimmed_""$file" "$file"
+	python /cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCACACGTCT -o "trimmed_""$file" "$file"
 done
 for file in *3.fq.gz
 do
-	python /tigress/ANDOLFATTO/bin/cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCGTCGTGTA -o "trimmed_""$file" "$file"
+	python cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCGTCGTGTA -o "trimmed_""$file" "$file"
 done
 
 #mate pair of read 1 and read 3
@@ -102,7 +103,7 @@ do
 	output=${file//.bam/_RG.bam}
 	ID=${file//-MAPQ20.bam/}
 	java -jar picard/dist/picard.jar AddOrReplaceReadGroups I=${file} O=${output} RGLB=${ID} RGPL=${ID} RGPU=${ID} RGSM=${ID} VALIDATION_STRINGENCY=LENIENT
-	/tigress/ANDOLFATTO/bin/samtools_git/samtools/bin/samtools index ${output}
+	samtools_git/samtools/bin/samtools index ${output}
 done
 
 #identify interval + realign indels 
@@ -112,7 +113,7 @@ do
 	RA=${file//_RG.bam/_RA.bam}
 	java -Xmx4g -jar GATK3.4/GenomeAnalysisTK.jar -I ${file} -R dmoj-all-chromosome-r1.04.fasta -T RealignerTargetCreator -o ${intervals}
 	java -Xmx4g -jar GATK3.4/GenomeAnalysisTK.jar -I ${file} -R  dmoj-all-chromosome-r1.04.fasta -T IndelRealigner -targetIntervals ${intervals} -o ${RA}
-	/tigress/ANDOLFATTO/bin/samtools_git/samtools/bin/samtools index ${RA}
+	samtools_git/samtools/bin/samtools index ${RA}
 done
 
 #call SNPs with GATK Haplotype caller
@@ -153,7 +154,7 @@ done
 for file in *6680.fasta
 do
 	output=${file//scaffold_6680.fasta/Or98a_2.fasta}
-	/tigress/ANDOLFATTO/patrick/bin/fixExons.pl -i ${file} 10169309-10170078:10170133-10170373:10170425-10170490:10170547-10170615 > ${output}
+	fixExons.pl -i ${file} 10169309-10170078:10170133-10170373:10170425-10170490:10170547-10170615 > ${output}
 done
 
 #translate nucleic acid to amino acid and mask degenerate regions 
