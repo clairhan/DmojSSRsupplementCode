@@ -1,4 +1,5 @@
 Read me DmojSSRsupplementCode
+Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
 
 Pipeline for performing RNA-seq expression analysis: RNAseq_expression_pipeline.txt
 	-This pipeline calls on the script "edgeR_expression.R"

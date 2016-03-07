@@ -11,7 +11,6 @@ blast-2.2.26/bin/formatdb -i dmoj-all-chromosome-r1.04.fasta -p F
 blast-2.2.26/bin/formatdb -i targets.fa -p F
 blast-2.2.26/bin/blastall -d dmoj-all-chromosome-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 1 
 
-#list of FBgn assignment to target genes 
 #######################Part 2: Map to reference and generate expression count data################################
 #map raw reads (.fastq.gz) to D.moj r1.04 reference genome
 bwa index dmoj-all-chromosome-r1.04.fasta 
