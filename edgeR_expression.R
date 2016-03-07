@@ -1,3 +1,6 @@
+#this pipeline runs a basic exact test to find expression differences in two populations
+#optionally reads in files "Or_list.csv" and "DmojID.csv" in folder "sample_files"
+
 library('edgeR')
 
 ##read in files

@@ -1,5 +1,5 @@
 #Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
-#This code uses the scripts "translation.py" and "MSA_summary_Dmoj.py"
+#This code calls on the scripts "translation.py" and "MSA_summary_Dmoj.py"
 
 ##############################Part 1: Map raw reads to reference################################################
 #parse raw reads
@@ -10,7 +10,7 @@ python barcode_splitter.py --bcfile truseq_indexes_SMR --prefix G1- --gzip steph
 #trim adapter
 for file in *1.fq.gz
 do
-	python /cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCACACGTCT -o "trimmed_""$file" "$file"
+	python cutadapt-1.2.1/bin/cutadapt -a AGATCGGAAGAGCACACGTCT -o "trimmed_""$file" "$file"
 done
 for file in *3.fq.gz
 do
