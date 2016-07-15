@@ -1,48 +1,57 @@
-#Questions regarding this code should be addressed to Clair Han at clairh@princeton.edu 
-#This code calls on the script "edgeR_expression.R"
+#this pipeline runs a basic exact test to find expression differences in two populations
+#optionally reads in files "samples.txt", "Or_list.csv" and "DmojID.csv" in folder "sample_files"
 
-#######################Part 1: Assign target gene sequences to FBgn gene names###################################
-#blast sequences of target genes (targets.fa) against D.moj r1.04 transcriptome 
-blast-2.2.26/bin/formatdb -i dmoj-all-transcript-r1.04.fasta -p F
-blast-2.2.26/bin/blastall -d dmoj-all-transcript-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 3 
+library('edgeR')
 
-#blast sequences of target genes (targets.fa) against D.moj r1.04 genome reference 
-blast-2.2.26/bin/formatdb -i dmoj-all-chromosome-r1.04.fasta -p F
-blast-2.2.26/bin/formatdb -i targets.fa -p F
-blast-2.2.26/bin/blastall -d dmoj-all-chromosome-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 1 
+##read in files
+samples <- read.delim("samples.txt", stringsAsFactors = FALSE)
+samples=samples[samples$sex=='F',]
+counts = readDGE(samples$file)$counts
 
-#######################Part 2: Map to reference and generate expression count data################################
-#map raw reads (.fastq.gz) to D.moj r1.04 reference genome
-bwa index dmoj-all-chromosome-r1.04.fasta 
+#filter by coverage
+noint = rownames(counts) %in% c("N_multimapping","N_noFeature","N_ambiguous")
+keep = rowSums(counts)>=10 & !noint
+counts = counts[keep,]
 
-for file in *.fastq.gz
-do
-	gunzip ${file}
-done
+#normalize
+d = DGEList(counts=counts, group=samples$group)
+d = calcNormFactors(d)
 
-for file in *.fastq
-do
-	name=${file//_T20C30.trim.fastq/}
-	bwa aln dmoj-all-chromosome-r1.04.fasta ${file} > ${name}.sai
-	bwa samse dmoj-all-chromosome-r1.04.fasta ${name}.sai ${file} > ${name}.sam
-	samtools_git/samtools/bin/samtools view -b -S -o ${name}.bam ${name}.sam
-done
+#estimate tagwise dispersion
+d=estimateCommonDisp(d)
+d=estimateTagwiseDisp(d)
 
-#check percentage of reads mapped
-for file in *.bam
-do
-	output=${file//.bam/.stats}
-	samtools_git/samtools/bin/samtools flagstat ${file} > ${output}
-done
+#test for differential expression
+de=exactTest(d,pair=c('A997b','GenomeC'))
 
-#generate counts with htseq
-for file in *.sam
-do
-	output=${file//.sam/.counts}
-	htseq-count -s no -a 10 ${file} dmoj-all-r1.04.gtf > ${output}
-done
+tt = topTags(de, n = nrow(d))
 
-###############################Part 3: Expression analysis with edgeR##############################################
-#conduct differential expression test for all genes in count file and produce volcano plot
-Rscript edgeR_expression.R
+#####################optional######################################
+
+nc = cpm(d, normalized.lib.sizes=TRUE)
+rn = rownames(tt$table)
+
+#subset output to only target genes or only Or genes of interest
+DmojID=read.csv("DmojID.csv", header=TRUE,stringsAsFactors = FALSE) #list of target genes
+tt$table$FBgn <- rownames(tt$table)
+rownames(tt$table) <- NULL
+final=merge(DmojID,tt$table,by.x="Final_verdict",by.y="FBgn")
+names(final)[6]='allgenesFDR'
+targetgenesFDR=p.adjust(final$PValue, method="fdr")
+final=cbind(final,targetgenesFDR)
+DmojOr=read.csv("Or_list.csv", header=TRUE,stringsAsFactors = FALSE) #list of Or genes
+final=merge(DmojOr,final,by.x="Or_list",by.y="Final_verdict")
+OrgenesFDR=p.adjust(final$PValue, method="fdr")
+final=cbind(final,OrgenesFDR)
+
+######################generate volcano plot#############################
+
+colnames(final)[8]="padj" #column of adjusted p-value (FDR)
+with(final, plot(logFC, -log10(padj), pch=20))
+with(subset(final, padj<.05), points(logFC, -log10(padj), pch=20, col="green"))
+with(subset(final, padj<.01), points(logFC, -log10(padj), pch=20, col="orange"))
+with(subset(final, padj<.001), points(logFC, -log10(padj), pch=20, col="red"))
+
+library(calibrate)
+with(subset(final, padj<.05), textxy(logFC, -log10(padj), labs=Dmoj_trans, cex=.8))
 
