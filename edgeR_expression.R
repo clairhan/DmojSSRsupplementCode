@@ -1,5 +1,5 @@
 #this pipeline runs a basic exact test to find expression differences in two populations
-#optionally reads in files "Or_list.csv" and "DmojID.csv" in folder "sample_files"
+#optionally reads in files "samples.txt", "Or_list.csv" and "DmojID.csv" in folder "sample_files"
 
 library('edgeR')
 
@@ -9,7 +9,7 @@ samples=samples[samples$sex=='F',]
 counts = readDGE(samples$file)$counts
 
 #filter by coverage
-noint = rownames(counts) %in% c("no_feature","ambiguous","too_low_aQual","not_aligned","alignment_not_unique")
+noint = rownames(counts) %in% c("N_multimapping","N_noFeature","N_ambiguous")
 keep = rowSums(counts)>=10 & !noint
 counts = counts[keep,]
 
@@ -54,3 +54,4 @@ with(subset(final, padj<.001), points(logFC, -log10(padj), pch=20, col="red"))
 
 library(calibrate)
 with(subset(final, padj<.05), textxy(logFC, -log10(padj), labs=Dmoj_trans, cex=.8))
+
