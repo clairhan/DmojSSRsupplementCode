@@ -1,0 +1,13 @@
+file	sex	group
+A997b-F1_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	A997b
+A997b-F2_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	A997b
+A997b-F3_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	A997b
+A997b-M1_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	A997b
+A997b-M2_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	A997b
+A997b-M3_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	A997b
+Genome-C-F1_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	GenomeC
+Genome-C-F2_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	GenomeC
+Genome-C-F3_read_1-trimmed_T20C30ReadsPerGene.out.tab	F	GenomeC
+Genome-C-M1_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	GenomeC
+Genome-C-M2_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	GenomeC
+Genome-C-M3_read_1-trimmed_T20C30ReadsPerGene.out.tab	M	GenomeC
