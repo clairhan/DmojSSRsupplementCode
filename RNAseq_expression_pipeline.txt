@@ -12,11 +12,6 @@ blast-2.2.26/bin/formatdb -i targets.fa -p F
 blast-2.2.26/bin/blastall -d dmoj-all-chromosome-r1.04.fasta -i targets.fa -p blastn -e 1e-4 -m 9 -b 1 
 
 #######################Part 2: Map to reference and generate expression count data################################
-#parse by index 
-python barcode_splitter.py --bcfile index-C --gzip stephanie-moja-cs-for-108-cycles-b013jabxx_5_read_1_passed_filter.fastq.gz stephanie-moja-cs-for-108-cycles-b013jabxx_5_read_2_index_read_passed_filter.fastq.gz --idxread 2 --suffix .fq.gz
-python barcode_splitter.py --bcfile index-D --gzip stephanie-moja-ds-for-108-cycles-b09wdabxx_5_read_1_passed_filter.fastq.gz stephanie-moja-ds-for-108-cycles-b09wdabxx_5_read_2_index_read_passed_filter.fastq.gz --idxread 2 --suffix .fq.gz
-python barcode_splitter.py --bcfile index-E --gzip stephanie-moja-es-for-108-cycles-d0emgabxx_6_read_1_passed_filter.fastq.gz stephanie-moja-es-for-108-cycles-d0emgabxx_6_read_2_index_read_passed_filter.fastq.gz --idxread 2 --suffix .fq.gz
-
 #trim adapter and quality filter and c30 q20  
 for file in *.fq.gz
 do
